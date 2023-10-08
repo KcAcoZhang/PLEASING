@@ -1,5 +1,7 @@
 # PLEASING
-Temporal Knowledge Graph Reasoning
+Temporal Knowledge Graph Reasoning.
+
+PLEASING: Exploring the Historical and Potential Events for Temporal Knowledge Graph Reasoning(Under Review)
 
 ## Dependencies
 The required framework and other libraries can be found in the requirement.txt.
@@ -35,3 +37,14 @@ python main_tt.py -d GDELT --description gdelt_soft --max-epochs 30 --oracle-epo
 Some of our code is also referenced from CENET, and the original dataset can be found here: https://github.com/xyjigsaw/CENET.
 
 And RE-GCN: https://github.com/Lee-zix/RE-GCN
+
+## Citation
+```
+@article{zhang-etal-2023-pleasing,
+title = {PLEASING: Exploring the Historical and Potential Events for Temporal Knowledge Graph Reasoning},
+journal = {Neural Networks},
+year = {2023},
+author = {Jinchuan Zhang, Ming Sun, Qian Huang, Ling Tian},
+keywords = {Temporal knowledge graphs; Extrapolation; Representation learning; Contrastive learning}
+}
+```
