@@ -2,7 +2,7 @@
 Temporal Knowledge Graph Reasoning
 
 ## Dependencies
-The required framework and other libraries can be found in the requirement.txt
+The required framework and other libraries can be found in the requirement.txt.
 Note that GDELT preprocessing requires more memory.
 
 ## Commands
@@ -30,5 +30,5 @@ GDELT
 python main_tt.py -d GDELT --description gdelt_soft --max-epochs 30 --oracle-epochs 20 --valid-epochs 10 --alpha 0.2 --lambdax 2 --batch-size 1024 --lr 0.001 --oracle_lr 0.001 --oracle_mode soft --save_dir SAVE --eva_dir SAVE --k 15 --beta 0.6 --gamma 0.1 --dropout 0.2 --time_span 15 --timestamps 2976 --static False
 ```
 ## Acknowledge
-Some of our code is also referenced from CENET, and the original dataset can be found here: https://github.com/xyjigsaw/CENET
+Some of our code is also referenced from CENET, and the original dataset can be found here: https://github.com/xyjigsaw/CENET.
 And RE-GCN: https://github.com/Lee-zix/RE-GCN
