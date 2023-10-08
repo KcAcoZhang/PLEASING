@@ -4,7 +4,7 @@ Temporal Knowledge Graph Reasoning.
 PLEASING: Exploring the Historical and Potential Events for Temporal Knowledge Graph Reasoning(Under Review)
 
 ## Dependencies
-The required framework and other libraries can be found in the requirement.txt.
+The required framework and other libraries can be found in the requirements.txt.
 
 Note that GDELT preprocessing requires more memory.
 
