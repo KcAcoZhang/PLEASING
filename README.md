@@ -1,7 +1,7 @@
 # PLEASING
 Temporal Knowledge Graph Reasoning.
 
-PLEASING: Exploring the Historical and Potential Events for Temporal Knowledge Graph Reasoning(Under Review)
+PLEASING: Exploring the Historical and Potential Events for Temporal Knowledge Graph Reasoning(Under Revise)
 
 ## Dependencies
 The required framework and other libraries can be found in the requirements.txt.
