@@ -1,5 +1,4 @@
 # *_*coding:utf-8 *_*
-# todo 是否有对non-history的mask或对比学习
 import torch
 import torch.nn as nn
 from torch.nn import functional as F, Parameter
@@ -49,9 +48,7 @@ class RGCNCell(BaseRGCN):
 
     def forward(self, g, init_ent_emb, init_rel_emb):
         node_id = g.ndata['id'].squeeze()
-        # edge_id = g.edata['type'].squeeze()
         g.ndata['h'] = init_ent_emb[node_id]
-        # g.edata['r'] = init_rel_emb[edge_id]
         x, r = init_ent_emb, init_rel_emb
         for i, layer in enumerate(self.layers):
             layer(g, [], r[i])
@@ -63,7 +60,6 @@ class Oracle(nn.Module):
         self.linear = nn.Sequential(nn.Linear(input_dim, input_dim),
                                     nn.BatchNorm1d(input_dim),
                                     nn.Dropout(0.2),
-                                    # nn.Dropout(0.4),
                                     nn.LeakyReLU(0.2),
                                     nn.Linear(input_dim, out_dim),
                                     )
@@ -76,11 +72,9 @@ class GatingMechanism(nn.Module):
         super(GatingMechanism, self).__init__()
         # gating 的参数
         self.gate_theta = nn.Parameter(torch.Tensor(num_e, h_dim), requires_grad=True).float()
-        # self.gate_theta = nn.Parameter(torch.Tensor(num_e * num_rel * 2, h_dim), requires_grad=True).float()
         self.num_rels = num_rel
         nn.init.xavier_uniform_(self.gate_theta)
         self.linear = nn.Linear(h_dim, 1)
-        # self.dropout = nn.Dropout(self.params.dropout)
 
     def forward(self, X: torch.LongTensor, Y: torch.LongTensor):
         '''
@@ -88,32 +82,7 @@ class GatingMechanism(nn.Module):
         :param Y:   Entity 的索引 id    |E|,
         :return:    Gating后的结果      |E| * H
         '''
-        # index = X * self.num_rels * 2 + Y
-        # gate = torch.sigmoid(self.linear(self.gate_theta[index]))
         gate = torch.sigmoid(self.linear(self.gate_theta[X]))
-        # gate = torch.sigmoid(self.gate_theta[Y])
-        # Y = self.enti_tran(Y)
-        # output = torch.mul(gate, X) + torch.mul(-gate + 1, Y)
-        return gate
-
-class ConcurrentGating(nn.Module):
-    def __init__(self, num_e, h_dim):
-        super(ConcurrentGating, self).__init__()
-        # gating 的参数
-        self.gate_theta = nn.Parameter(torch.Tensor(num_e, h_dim), requires_grad=True).float()
-        nn.init.xavier_uniform_(self.gate_theta)
-        # self.dropout = nn.Dropout(self.params.dropout)
-
-    def forward(self, X, Y: torch.LongTensor):
-        '''
-        :param X:   LSTM 的输出tensor   |E| * H
-        :param Y:   Entity 的索引 id    |E|,
-        :return:    Gating后的结果      |E| * H
-        '''
-        gate = torch.sigmoid(self.gate_theta[Y])
-        # gate = torch.sigmoid(self.gate_theta[Y])
-        # Y = self.enti_tran(Y)
-        # output = torch.mul(gate, X) + torch.mul(-gate + 1, Y)
         return gate
 
 class PLEASING(nn.Module):
@@ -132,18 +101,13 @@ class PLEASING(nn.Module):
         self.static_rgcn_layer = RGCNBlockLayer(args.embedding_dim, args.embedding_dim, self.num_static_rels*2, 100,
                                                 activation=F.rrelu, dropout=0.2, self_loop=False, skip_connect=False)
         self.static_loss = torch.nn.MSELoss()
-
-        #* ConvE
-        self.conve = ConvE(self.num_e, self.num_rel, embed_dim=args.embedding_dim, hidden_drop=0.2)
+        
         self.historical_weight = nn.Parameter(torch.Tensor(args.batch_size, self.num_e), requires_grad=True).float()
         nn.init.xavier_uniform_(self.historical_weight, gain=nn.init.calculate_gain('sigmoid'))
         self.time_gate_weight = nn.Parameter(torch.Tensor(self.num_e, self.num_e))
         nn.init.xavier_uniform_(self.time_gate_weight, gain=nn.init.calculate_gain('relu'))
         self.time_gate_bias = nn.Parameter(torch.Tensor(self.num_e))
         nn.init.zeros_(self.time_gate_bias)
-        # self.non_historical_weight = nn.Parameter(torch.Tensor(args.batch_size, self.num_e), requires_grad=True).float()
-        # self.historical_weight = nn.Linear(args.embedding_dim, args.embedding_dim)
-        # entity relation embedding
         self.rel_embeds = nn.Parameter(torch.Tensor(2 * num_rel, args.embedding_dim), requires_grad=True).float()
         nn.init.xavier_uniform_(self.rel_embeds, gain=nn.init.calculate_gain('relu'))
         self.entity_embeds = nn.Parameter(torch.Tensor(self.num_e, args.embedding_dim), requires_grad=True).float()
@@ -151,8 +115,6 @@ class PLEASING(nn.Module):
         # add initial time embedding
         self.time_embeds = nn.Parameter(torch.Tensor(args.timestamps, 32), requires_grad=True).float()
         nn.init.xavier_uniform_(self.time_embeds, gain=nn.init.calculate_gain('relu'))
-        # self.time_constraint = nn.Parameter(torch.Tensor(2 * args.embedding_dim, args.embedding_dim), requires_grad=True).float()
-        # nn.init.xavier_uniform_(self.time_constraint, gain=nn.init.calculate_gain('relu'))
         self.time_constraint = nn.Linear(32, args.embedding_dim)
 
         self.linear_frequency = nn.Linear(self.num_e, args.embedding_dim)
@@ -171,11 +133,8 @@ class PLEASING(nn.Module):
         self.linear_pred_layer_s3 = nn.Linear(2 * args.embedding_dim, args.embedding_dim)
         self.linear_pred_layer_o3 = nn.Linear(2 * args.embedding_dim, args.embedding_dim)
 
-        #* time2vec
-        # self.time_encoder = TimeEncode(dimension=200)
-        #* Xu: Bochner's time embedding
         self.time_encoder = TimeEncode(args.embedding_dim)
-        #* TiRGN
+
         self.weight_t1 = nn.parameter.Parameter(torch.randn(1, args.embedding_dim))
         self.bias_t1 = nn.parameter.Parameter(torch.randn(1, args.embedding_dim))
         self.weight_t2 = nn.parameter.Parameter(torch.randn(1, args.embedding_dim))
@@ -202,13 +161,7 @@ class PLEASING(nn.Module):
                              100,
                              2,
                              args.dropout)
-        # self.rgcn_t = RGCNCell(args.timestamps,
-        #                      args.embedding_dim,
-        #                      args.embedding_dim,
-        #                      2 * 2,
-        #                      100,
-        #                      2,
-        #                      args.dropout)
+
         self.rgcn_t = RGCNBlockLayer(args.embedding_dim, args.embedding_dim, 4*2, 100,
                                                 activation=F.rrelu, dropout=0.2, self_loop=False, skip_connect=False)
         self.gate = GatingMechanism(self.num_e, self.num_rel, args.embedding_dim)
@@ -259,16 +212,6 @@ class PLEASING(nn.Module):
         return loss.mean()
 
     def get_init_time(self, quadrupleList):
-        # T_idx = (quadrupleList[:, 3] / self.args.time_span).long()
-        # # T_idx = (quadrupleList[:, 3] / self.args.time_span).float()
-        # # init_tim = torch.cos(self.time_rel_linear(init_tim))
-        # #* time2vec
-        # T = self.time_encoder(self.time_embeds[T_idx])
-        # #* Xu: Bochner's time embedding
-        # # T = self.time_encoder(T_idx)
-        # return T
-        #* tirgn
-        # T_idx = quadrupleList[:, 3] // self.args.time_span
         T_idx = quadrupleList.unsqueeze(1).float()
         t1 = self.weight_t1 * T_idx + self.bias_t1
         t2 = torch.sin(self.weight_t2 * T_idx + self.bias_t2)
@@ -296,18 +239,10 @@ class PLEASING(nn.Module):
         t = (quadruples[:, 3] / 24.0).long()
         time_embedding = self.pe[t]
         """
-        #! time embedding 1.1&1.2
-        # self.fact_time = self.get_init_time(quadruples)
-        # bbtime = np.arange(0, self.args.timestamps)
         t = (quadruples[:, 3] / self.args.time_span).long()
-        # cctime = torch.from_numpy(bbtime).to(self.args.gpu)
-        # self.init_time_emb = self.get_init_time(cctime)
         self.init_time_emb = self.time_encoder(self.time_embeds)
         t_graph = t_graph.to(self.args.gpu)
         t_graph.ndata['h'] = self.init_time_emb
-        # t_graph.ndata['h'] = self.time_constraint(self.time_embeds)
-        # t_graph.ndata['h'] = self.time_embeds
-        # all_time = self.rgcn_t(t_graph, self.init_time_emb, [self.time_constraint, self.time_constraint])
         self.rgcn_t(t_graph, [])
         all_time = F.normalize(t_graph.ndata.pop('h'))
         self.fact_time = all_time[t]
@@ -338,18 +273,6 @@ class PLEASING(nn.Module):
 
         s_history_tag[s_history_tag == 0] = -self.args.lambdax
         o_history_tag[o_history_tag == 0] = -self.args.lambdax
-
-        # s_history_tag[s_history_tag != 0] = self.args.lambdax
-        # o_history_tag[o_history_tag != 0] = self.args.lambdax
-
-        # s_non_history_tag[s_non_history_tag != 0] = -self.args.lambdax
-        # s_non_history_tag[s_non_history_tag == 0] = self.args.lambdax
-
-        # o_non_history_tag[o_non_history_tag != 0] = -self.args.lambdax
-        # o_non_history_tag[o_non_history_tag == 0] = self.args.lambdax
-
-        # s_history_tag[s_history_tag == 0] = -self.args.lambdax
-        # o_history_tag[o_history_tag == 0] = -self.args.lambdax
 
         s_frequency = F.softmax(s_frequency, dim=1)
         o_frequency = F.softmax(o_frequency, dim=1)
@@ -394,16 +317,8 @@ class PLEASING(nn.Module):
                 s_history_oid.append([])
                 o_history_sid.append([])
                 for con_events in s_history_event_o[i]:
-                    #* 精确到query的r
-                    # idxx = (con_events[:, 0] == r[i]).nonzero()[0]
-                    # cur_events = con_events[idxx, 1].tolist()
-                    # s_history_oid[-1] += cur_events
-                    #* 与r无关，只精确到s
                     s_history_oid[-1] += con_events[:, 1].tolist()
                 for con_events in o_history_event_s[i]:
-                    # idxx = (con_events[:, 0] == r[i]).nonzero()[0]
-                    # cur_events = con_events[idxx, 1].tolist()
-                    # o_history_sid[-1] += cur_events
                     o_history_sid[-1] += con_events[:, 1].tolist()
 
             s_nce_loss, ss_preds = self.calculate_nce_loss(s, o, r, self.rel_embeds[:self.num_rel],
@@ -440,14 +355,8 @@ class PLEASING(nn.Module):
             if self.oracle_mode == 'hard':
                 s_mask = s_mask
                 o_mask = o_mask
-                #!
-                # s_mask = self.sigmoid(s_mask)
-                # o_mask = self.sigmoid(o_mask)
 
             if self.oracle_mode == 'soft':
-                # s_mask = F.softmax(s_mask, dim=1)
-                # o_mask = F.softmax(o_mask, dim=1)
-                #!!! sigmoid more soft 3&
                 s_mask = self.sigmoid(s_mask)
                 o_mask = self.sigmoid(o_mask)
             if mode_lk == 'Valid':
@@ -514,10 +423,6 @@ class PLEASING(nn.Module):
             self.dropout(torch.cat((self.init_ent_emb[actor1], rel_embeds[r]), dim=1))))
         preds2 = F.softmax(preds_raw2.mm(self.init_ent_emb.transpose(0, 1)) + non_history_tag, dim=1)
 
-        #* normal
-        # preds_two = preds1 + preds2
-        #* gate
-        # gate = self.gate(actor1)
         gate = self.gate(actor1, r)
         fgate = open("gate.txt", "a+")
         print(gate,file=fgate)
@@ -531,13 +436,7 @@ class PLEASING(nn.Module):
         return nce, preds_two
 
     def contrastive_layer(self, x):
-        # Implement from the encoder E to the projection network P
-        # x = F.normalize(x, dim=1)
         x = self.contrastive_hidden_layer(x)
-        # x = F.relu(x)
-        # x = self.contrastive_output_layer(x)
-        # Normalize to unit hypersphere
-        # x = F.normalize(x, dim=1)
         return x
 
     def calculate_spc_loss(self, actor1, r, rel_embeds, targets, frequency_hidden):
@@ -591,10 +490,8 @@ class PLEASING(nn.Module):
 
         preds_total = self.args.gamma * score_enhanced + (1 - self.args.gamma) * preds
 
-        # loss_cand = self.celoss(score_enhanced, actor2)
         scores_enhanced = torch.log(score_enhanced)
         loss_cand = F.nll_loss(scores_enhanced, actor2) + self.regularization_loss(reg_param=0.01)
-        # loss_cand = self.softmax_focal_loss(loss_cand)
 
         pred_actor2 = torch.argmax(preds_total, dim=1)  # predicted result
         correct = torch.sum(torch.eq(pred_actor2, actor2))
@@ -603,41 +500,6 @@ class PLEASING(nn.Module):
         if torch.any(torch.isnan(loss_cand)):
             loss_cand = torch.tensor(0.0, requires_grad=True)
         return loss_cand, preds_total, entity_feature
-#* ConvE
-#! change the contrastive layer from mlp to conve(1D or 2D) 6.1&6.2
-#todo add the different negative-samples strategy
-    # def contrastive_layer(self, actor1_embeds, rel_embeds, frequency_hidden):
-    #     # x = self.conve(actor1_embeds, rel_embeds, frequency_hidden)
-    #     a = self.relu(self.linear_er(torch.cat([actor1_embeds, rel_embeds], dim=1)))
-    #     b = F.normalize(self.linear_ef(torch.cat([a, frequency_hidden], dim=1)) + a)
-    #     x = self.relu(self.linear_rf(b))
-    #     # projections = self.dropout(projections)
-    #     projections = self.contrastive_output_layer(x)
-    #     # todo 是否需要归一化
-    #     projections = F.normalize(projections + b)
-    #     return projections
-
-    # def calculate_spc_loss(self, actor1, r, rel_embeds, targets, frequency_hidden):
-    #     self.temperature = 0.1
-    #     projections = self.contrastive_layer(
-    #         self.init_ent_emb[actor1], rel_embeds[r], frequency_hidden)
-    #     targets = torch.squeeze(targets)
-    #     dot_product_tempered = torch.mm(projections, projections.T) / self.temperature
-    #     # Minus max for numerical stability with exponential. Same done in cross entropy. Epsilon added to avoid log(0)
-    #     exp_dot_tempered = (
-    #             torch.exp(dot_product_tempered - torch.max(dot_product_tempered, dim=1, keepdim=True)[0]) + 1e-5
-    #     )
-    #     mask_similar_class = to_device(targets.unsqueeze(1).repeat(1, targets.shape[0]) == targets)
-    #     mask_anchor_out = to_device(1 - torch.eye(exp_dot_tempered.shape[0]))
-    #     mask_combined = mask_similar_class * mask_anchor_out
-    #     cardinality_per_samples = torch.sum(mask_combined, dim=1)
-    #     log_prob = -torch.log(exp_dot_tempered / (torch.sum(exp_dot_tempered * mask_anchor_out, dim=1, keepdim=True)))
-    #     supervised_contrastive_loss_per_sample = torch.sum(log_prob * mask_combined, dim=1) / cardinality_per_samples
-
-    #     supervised_contrastive_loss = torch.mean(supervised_contrastive_loss_per_sample)
-    #     if torch.any(torch.isnan(supervised_contrastive_loss)):
-    #         return 0
-    #     return supervised_contrastive_loss
 
     def oracle_loss(self, actor1, r, rel_embeds, history_label, frequency_hidden):
         history_label_pred = self.sigmoid(
@@ -743,7 +605,6 @@ class PLEASING(nn.Module):
         self.linear_frequency.requires_grad_(False)
         self.contrastive_hidden_layer.requires_grad_(False)
         self.contrastive_output_layer.requires_grad_(False)
-        self.conve.requires_grad_(False)
         self.static_rgcn_layer.requires_grad_(False)
         self.time_encoder.requires_grad_(False)
         self.rgcn_t.requires_grad_(False)
@@ -764,101 +625,3 @@ class PLEASING(nn.Module):
         self.bias_t1.requires_grad_(False)
         self.bias_t2.requires_grad_(False)
         self.time_constraint.requires_grad_(False)
-
-#* Conv1d
-class ConvE(torch.nn.Module):
-    def __init__(self, num_entities, num_relations, embed_dim=200, hidden_drop=0.2):
-        super().__init__()
-        self.embed_dim = embed_dim
-        self.num_entities = num_entities
-        self.num_relations = num_relations
-        channels = 1
-        kernel_size = 1
-        self.conv1 = torch.nn.Conv1d(3, channels, kernel_size, stride=1,
-                                      padding=int(math.floor(kernel_size / 2)))
-        self.fc = torch.nn.Linear(embed_dim * channels, embed_dim)
-        self.bn0 = torch.nn.BatchNorm1d(3)
-
-        #* add attention mechanism
-        self.attention_layer = nn.Linear(embed_dim, 1)
-        self.hidden_drop = torch.nn.Dropout(hidden_drop)
-
-        #* add ResNet architecture
-        self.normal = nn.Sequential(torch.nn.Conv1d(3, channels, kernel_size, stride=1,
-                                      padding=int(math.floor(kernel_size / 2))),
-                                    nn.ReLU(),
-                                    nn.Dropout(hidden_drop),
-                                    nn.BatchNorm1d(1))
-
-        self.res1 = nn.Sequential(torch.nn.Conv1d(1, channels, kernel_size, stride=1,
-                                      padding=int(math.floor(kernel_size / 2))),
-                                    nn.ReLU(),
-                                    nn.Dropout(hidden_drop),
-                                    nn.BatchNorm1d(1))
-
-        self.res2 = nn.Sequential(torch.nn.Conv1d(1, channels, kernel_size, stride=1,
-                                      padding=int(math.floor(kernel_size / 2))),
-                                    nn.ReLU(),
-                                    nn.Dropout(hidden_drop),
-                                    nn.BatchNorm1d(1))
-
-    def forward(self, entity, rels, frequency):
-        entity, rels, frequency = entity.unsqueeze(1), rels.unsqueeze(1), frequency.unsqueeze(1)
-        embeds = torch.cat([entity, rels, frequency], 1)
-        batch_size = entity.shape[0]
-        # embeds = embeds.view(-1, 1, self.embed_dim * 2, 1)
-        x = F.relu(self.bn0(embeds))
-        x = self.conv1(x)
-        #* res
-        # # x = self.normal(embeds)
-        # res1_output = self.res1(x)
-        # x = F.relu(x + res1_output)
-        # res2_output = self.res2(x)
-        # x = F.relu(x + res2_output)
-
-        x = x.view(batch_size, -1)
-
-        #* add attention mechanism
-        # attention_score = F.softmax(self.attention_layer(x))
-        # x = attention_score * x
-        # x = self.hidden_drop(self.fc(x))
-
-        return x
-
-# Conv2d
-# class ConvE(torch.nn.Module):
-#     def __init__(self, num_entities, num_relations, embed_dim=200, hidden_drop=0.5):
-#         super(ConvE, self).__init__()
-#         self.inp_drop = torch.nn.Dropout(0.4)
-#         self.hidden_drop = torch.nn.Dropout(hidden_drop)
-#         self.feature_map_drop = torch.nn.Dropout2d(0.4)
-#         self.emb_dim1 = 20
-#         self.emb_dim2 = embed_dim // self.emb_dim1
-
-#         self.conv1 = torch.nn.Conv2d(1, 32, (3, 3), 1, 0, bias=True)
-#         self.bn0 = torch.nn.BatchNorm2d(1)
-#         self.bn1 = torch.nn.BatchNorm2d(32)
-#         self.bn2 = torch.nn.BatchNorm1d(embed_dim)
-#         self.register_parameter('b', Parameter(torch.zeros(num_entities)))
-#         self.fc = torch.nn.Linear(14848, embed_dim)
-
-#     def forward(self, entity, rels, frequency):
-#         e1_embedded = entity.view(-1, 1, self.emb_dim1, self.emb_dim2)
-#         rel_embedded = rels.view(-1, 1, self.emb_dim1, self.emb_dim2)
-#         freq_embedded = frequency.view(-1, 1, self.emb_dim1, self.emb_dim2)
-
-#         stacked_inputs = torch.cat([e1_embedded, rel_embedded, freq_embedded], 2)
-
-#         stacked_inputs = self.bn0(stacked_inputs)
-#         x= self.inp_drop(stacked_inputs)
-#         x= self.conv1(x)
-#         x= self.bn1(x)
-#         x= F.relu(x)
-#         x = self.feature_map_drop(x)
-#         x = x.view(x.shape[0], -1)
-#         x = self.fc(x)
-#         x = self.hidden_drop(x)
-#         x = self.bn2(x)
-#         x = F.relu(x)
-
-#         return x
