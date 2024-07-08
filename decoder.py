@@ -26,15 +26,10 @@ class TimeConvTransE(torch.nn.Module):
 
     def forward(self, embedding, eid, emb_rel, emb_time, nodes_id=None, mode="train", negative_rate=0, partial_embeding=None):
         e1_embedded_all = F.tanh(embedding)
-        # e1_embedded_all = embedding
-        # emb_pos = F.tanh(emb_pos)
         e1_embedded = e1_embedded_all[eid].unsqueeze(1)  # batch_size,1,h_dim
         batch_size = e1_embedded.shape[0]
         rel_embedded = emb_rel.unsqueeze(1)  # batch_size,1,h_dim
         time_emb = emb_time.unsqueeze(1)
-        # print(e1_embedded.shape)
-        # print(rel_embedded.shape)
-        # stacked_inputs = torch.cat([e1_embedded, rel_embedded], 1)  # batch_size,2,h_dim
         stacked_inputs = torch.cat([e1_embedded, rel_embedded, time_emb], 1)  # batch_size,2,h_dim
         stacked_inputs = self.bn0(stacked_inputs)  # batch_size,2,h_dim
         x = self.inp_drop(stacked_inputs)  # batch_size,2,h_dim
@@ -75,14 +70,9 @@ class ConvTransE(torch.nn.Module):
 
     def forward(self, embedding, eid, emb_rel, nodes_id=None, mode="train", negative_rate=0, partial_embeding=None):
         e1_embedded_all = F.tanh(embedding)
-        # e1_embedded_all = embedding
-        # emb_pos = F.tanh(emb_pos)
         e1_embedded = e1_embedded_all[eid].unsqueeze(1)  # batch_size,1,h_dim
         batch_size = e1_embedded.shape[0]
         rel_embedded = emb_rel.unsqueeze(1)  # batch_size,1,h_dim
-        # print(e1_embedded.shape)
-        # print(rel_embedded.shape)
-        # stacked_inputs = torch.cat([e1_embedded, emb_time], 1)  # batch_size,2,h_dim
         stacked_inputs = torch.cat([e1_embedded, rel_embedded], 1)  # batch_size,2,h_dim
         stacked_inputs = self.bn0(stacked_inputs)  # batch_size,2,h_dim
         x = self.inp_drop(stacked_inputs)  # batch_size,2,h_dim
