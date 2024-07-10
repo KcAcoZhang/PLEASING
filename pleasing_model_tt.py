@@ -165,8 +165,6 @@ class PLEASING(nn.Module):
         self.rgcn_t = RGCNBlockLayer(args.embedding_dim, args.embedding_dim, 4*2, 100,
                                                 activation=F.rrelu, dropout=0.2, self_loop=False, skip_connect=False)
         self.gate = GatingMechanism(self.num_e, self.num_rel, args.embedding_dim)
-        self.con_gate_s = ConcurrentGating(self.num_e, args.embedding_dim)
-        self.con_gate_o = ConcurrentGating(self.num_e, args.embedding_dim)
 
         #* new contrastive
         self.linear_er = nn.Linear(2 * args.embedding_dim, args.embedding_dim)
