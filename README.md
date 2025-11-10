@@ -41,10 +41,13 @@ And RE-GCN: https://github.com/Lee-zix/RE-GCN
 ## Citation
 ```
 @article{zhang-etal-2023-pleasing,
-title = {PLEASING: Exploring the Historical and Potential Events for Temporal Knowledge Graph Reasoning},
+title = {PLEASING: Exploring the historical and potential events for temporal knowledge graph reasoning},
 journal = {Neural Networks},
-year = {2023},
-author = {Jinchuan Zhang, Ming Sun, Qian Huang, Ling Tian},
-keywords = {Temporal knowledge graphs; Extrapolation; Representation learning; Contrastive learning}
+volume = {179},
+pages = {106516},
+year = {2024},
+issn = {0893-6080},
+doi = {https://doi.org/10.1016/j.neunet.2024.106516},
+url = {https://www.sciencedirect.com/science/article/pii/S0893608024004404}
 }
 ```
